@@ -1,0 +1,636 @@
+   
+
+#       $Workfile:   bhrd_run_etl_job.ksh  $
+#       $Revision:   2.10  $
+#       $Date:   Sep 28 2010 13:19:38  $
+#       $Author:   PKHERA  $
+#!/bin/bash
+#-------------------------------------------------------------------------------
+#  $Workfile:   bhrd_run_etl_job.ksh
+#-------------------------------------------------------------------------------
+#  Author       :       Avinish Bansal
+#
+#  Date Created :       15-Feb-2007
+#
+#  Description  :       This script executes ETL jobs via Autosys
+#
+#  Input        :       $1 - Datastage Job Sequence or Macro Name
+#                       $2 - ETL Group name (or TD_MACRO for Teradata Macro)
+#                       $3 - Sequence/Job Level Parameter file name
+#                       $4 - Last Extract Date required (D - Date/T - Date/Time)
+#                       $5 - Input File name(if any)
+#                       $6 - Multiple Instance. Invocation ID required (Y/N)
+#                       $7 - Invocation ID.
+#
+#  Output       :       Logfile in $LOG_DIR directory
+#                       Outfile in $LOG_DIR/stdout directory
+#
+#  Calls        :       bhrd_etl_profile.ksh
+#
+#  Called by    :       Autosys Jobs
+#
+#  Change history:
+#
+#  Modified By          Date          Reason
+#
+# ------------------   -----------   -------------------------------------------
+# ABANSAL1             02/17/2007    Initial Draft
+# AGULLIPA             08/29/2007    ET#5430235 Time Box
+# AGULLIPA             12/16/2007    Org Plus Box Changes & Position Management Release
+# Arun Gullipalli      02/10/2008    United Way Feeds Launch
+# skoppuse             05/22/2008    Removed the Group name for Orgplus and FDI in HRDP section.
+# BSADANAN             06/11/2008    ET # 6472279 - Changes done in DS_JOB Command. Files has been passed as parameter
+# BSADANAN             08/06/2008    #ET # 7163657 - To execute the Macro files,bhrd_hrdwtd_bat_db_sql.pwd added
+# Arun Gullipalli      03/05/2010    Compensation Planning Launch. Enabled Password passing for PCP Group# skoppuse             05/22/2008    Removed the Group name for Orgplus and FDI in HRDP section.
+# BSADANAN             06/11/2008    ET # 6472279 - Changes done in DS_JOB Command. Files has been passed as parameter
+# BSADANAN             08/06/2008    #ET # 7163657 - To execute the Macro files,bhrd_hrdwtd_bat_db_sql.pwd added
+# Arun Gullipalli      03/05/2010    Compensation Planning Launch. Enabled Password passing for PCP Group
+# Arun Gullipalli      03/10/2011    SABA Launch. Enabled Password passing for SBA Group
+# Veranjaneyla reddy   01/27/2012    HRDW PRISM Feed.Added new Group Name
+# EARUNAKU             08/10/2012    DataStage  migration from 7.5 to 8.5
+#-------------------------------------------------------------------------------
+
+# Set the environment for HRDW by calling bhrd_etl_profile.ksh
+CURR_HOME_PATH=`dirname $0`
+. ${CURR_HOME_PATH}/bhrd_etl_profile.ksh
+echo "*****************************************"
+echo "Inside bhrd_run_etl_job.ksh"
+echo "*****************************************"
+NOW=`date +"%Y-%m-%d %H:%M:%S"`
+###########################################################################################
+#                                                                                         #
+#           Declare the variables                                                         #
+#                                                                                         #
+###########################################################################################
+DS_PARAM           =" "
+DS_JOBSEQ_TD_MACRO =$1
+DS_GRP_NM          =$2
+SEQ_LEVEL_PARM_FILE=$3.parms
+LAST_EXT_DT_REQD   =$4
+INVOCATION_ID_REQD =$6
+INVOCATION_ID      =$7
+SUCCESS_EXIT_STATUS=0
+FAIL_EXIT_STATUS   =1
+#ET # 7163657 - To execute the Macro files
+DS_JOBSEQ_TD_MACRO_LOG=$DS_JOBSEQ_TD_MACRO".log"
+
+#ET # 6472279 - Login, UID, Passwd & SID parameters removed
+ETL_PROGNM_PARM  ='$ETL_PROGNM'
+WSS_ORA_UID_PARM ='$WSS_ORA_UID'
+WSS_ORA_PWD_PARM ='$WSS_ORA_PWD'
+WSS_ORA_SID_PARM ='$WSS_ORA_SID'
+#ET # 7163657 - To execute the Macro files
+HRDWTD_UID_PARM  ='$TERA_UID'
+HRDWTD_PWD_PARM  ='$TERA_PWD'
+HRDWTD_SID_PARM  ='$TERA_SID'
+HRDWTD_DB_PARM   ='$TERA_DB'
+#SQLSRV_FDI_UID_PARM='$SQLSRV_FDI_UID'
+#SQLSRV_FDI_PWD_PARM='$SQLSRV_FDI_PWD'
+#SQLSRV_FDIFLN_PARM ='$SQLSRV_FDIFLN'
+#SQLSRV_FDITST_PARM ='$SQLSRV_FDITST'
+RUN_DT_PARM     ='$RUN_DT'
+JOB_RUN_ID_PARM ='$JOB_RUN_ID'
+ETL_GRP_NM_PARM ='$BATCH_STREAM_NM'
+LAST_EXT_DT_PARM='$LAST_EXT_DT'
+DS_LOGFILE      = $BATCH_OP_DIR/$DS_GRP_NM/$DS_JOBSEQ_TD_MACRO.log
+
+###########################################################################################
+#                                                                                         #
+#           Identifying the locations of password files                                   #
+#                                                                                         #
+###########################################################################################
+pshr_read_passwd_file        =$SEC_DIR/bhrd_pshr_read_db.pwd
+hron_read_passwd_file        =$SEC_DIR/bhrd_hron_read_db.pwd
+ccr_read_passwd_file         =$SEC_DIR/bhrd_ccr_read_db.pwd
+hrdwtd_batch_passwd_file     =$SEC_DIR/bhrd_hrdwtd_bat_db.pwd
+#ET # 7163657 - To execute the Macro files
+hrdwtd_sql_batch_passwd_file =$SEC_DIR/bhrd_hrdwtd_bat_db_sql.pwd
+batch_err_log_passwd_file    =$SEC_DIR/bhrd_batch_err_log_db.pwd
+fdi_hronline_read_passwd_file=$SEC_DIR/bhrd_hrdwp_read_db.pwd
+hrdw_pulse_intf_passwd_file  =$SEC_DIR/bhrd_hrdwp_pls_intf_db.pwd
+wss_pulse_intf_passwd_file   =$SEC_DIR/bhrd_wss_pls_intf.pwd
+fdi_read_passwd_file         =$SEC_DIR/bhrd_fdi_read_db.pwd
+sba_read_passwd_file         =$SEC_DIR/bhrd_sba_read_db.pwd
+sba_hrdwtd_batch_passwd_file =$SEC_DIR/bhrd_hrdwtd_sba_bat_db.pwd
+
+###########################################################################################
+#                                                                                         #
+#           Identifying the locations of batch log & last run date files                  #
+#                                                                                         #
+###########################################################################################
+batch_info_file            =$IF_DIR/$DS_GRP_NM/curr_batchlog_info.txt
+last_run_date_etl_comp_file=$IF_DIR/$DS_GRP_NM/$INVOCATION_ID"_LAST_EXT_DT".txt
+
+###########################################################################################
+#                                                                                         #
+#           Setting common parameters for all jobs                                        #
+#                                                                                         #
+###########################################################################################
+DS_PARAM="${DS_PARAM} -param  ${ETL_GRP_NM_PARM}=${DS_GRP_NM}"
+if [ "$DS_JOBSEQ_TD_MACRO" = "BHRDPSHCMS002DWETLGRPSTART" ] || [ "$DS_JOBSEQ_TD_MACRO" = "BHRDPSHCMS001DWETLGRPSTART" ] || [ "$DS_JOBSEQ_TD_MACRO" = "BHRDPSHCMS001DWETLGRPEND" ] ; then
+        COMMON_GRP_JOB=Y export COMMON_GRP_JOB;
+else
+        COMMON_GRP_JOB=N export COMMON_GRP_JOB;
+fi
+###########################################################################################
+#                                                                                         #
+#           Reading the PSHR password file & setting the params & passwords               #
+#                                                                                         #
+###########################################################################################
+#ET # 6472279 - Parameter file pshr_read_passwd_file has been passed
+ 
+if [ "$COMMON_GRP_JOB" = "N" ] ; then
+ if     [ "$DS_GRP_NM" = "$PBL_GRP_NM" ]
+     || [ "$DS_GRP_NM" = "$PDM_GRP_NM" ] 
+     || [ "$DS_GRP_NM" = "$PEC_GRP_NM" ] 
+     || [ "$DS_GRP_NM" = "$PEJ_GRP_NM" ] 
+     || [ "$DS_GRP_NM" = "$FIN_GRP_NM" ]
+     || [ "$DS_GRP_NM" = "$PGT_GRP_NM" ] 
+     || [ "$DS_GRP_NM" = "$DI_PALS_GRP_NM" ] 
+     || [ "$DS_GRP_NM" = "$DI_FordDbdc_IseAddr_GRP_NM" ] 
+     || [ "$DS_GRP_NM" = "$TIM_GRP_NM" ] 
+     || [ "$DS_GRP_NM" = "$PRE_CONV_POS_GRP_NM" ]
+     || [ "$DS_GRP_NM" = "$PRE_CONV_POS_GRP_NM" ] 
+     || [ "$DS_GRP_NM" = "$DI_CMDS_GRP_NM" ] 
+     || [ "$DS_GRP_NM" = "$DI_UWAY_GRP_NM" ]
+     || [ "$DS_GRP_NM" = "$PCP_GRP_NM" ]
+     || [ "$DS_GRP_NM" = "$DI_PRISM_PCE_GRP_NM" ]; then
+        if [ ! -e $pshr_read_passwd_file ] ; then
+                export message="PSHR DB Password File not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+                echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+        exit 1
+        fi
+        DS_PARAM = "${DS_PARAM} -paramfile  ${pshr_read_passwd_file}"
+  fi
+ fi
+###########################################################################################
+#                                                                                         #
+#           Reading the WSS password file & setting the params & passwords                #
+#                                                                                         #
+###########################################################################################
+#ET # 6472279 - Parameter file wss_pulse_intf_passwd_file has been passed
+if [ "$COMMON_GRP_JOB" = "N" ] ; then
+ if [ "$DS_GRP_NM" = "$DI_PULSE_GRP_NM" ] ; then
+        if [ ! -e $wss_pulse_intf_passwd_file ] ; then
+                export message="WSS DB Password File not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+                echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+                exit 1
+        fi
+        DS_PARAM="${DS_PARAM} -paramfile  ${wss_pulse_intf_passwd_file}"
+ fi
+fi
+###########################################################################################
+#                                                                                         #
+#           Reading the HRONLINE password file & setting the params & passwords           #
+#                                                                                         #
+###########################################################################################
+#ET # 6472279 - Parameter file hron_read_passwd_file has been passed
+
+if [ "$COMMON_GRP_JOB" = "N" ] ; then
+ 
+ if [ "$DS_GRP_NM" = "$HNL_GRP_NM" ] ; then
+       if [ ! -e $hron_read_passwd_file ] ; then
+                export message="HRONLINE DB Password File not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+                echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+                exit 1
+        fi
+        DS_PARAM="${DS_PARAM} -paramfile ${hron_read_passwd_file}"
+ fi
+fi
+###########################################################################################
+#                                                                                         #
+#           Reading the CCR password file & setting the params & passwords                #
+#                                                                                         #
+###########################################################################################
+
+#ET # 6472279 - Parameter file ccr_read_passwd_file has been passed
+if [ "$COMMON_GRP_JOB" = "N" ] ; then
+ if   [ "$DS_GRP_NM" = "$CCL_GRP_NM" ] 
+   || [ "$DS_GRP_NM" = "$CCTP_GRP_NM" ] 
+   || [ "$DS_GRP_NM" = "$CCTG_GRP_NM" ]
+   || [ "$DS_GRP_NM" = "$CCTD_GRP_NM" ]
+   || [ "$DS_GRP_NM" = "$CCFD_GRP_NM" ] 
+   || [ "$DS_GRP_NM" = "$CCMO_GRP_NM" ] 
+   || [ "$DS_GRP_NM" = "$CCYR_GRP_NM" ] ; then
+        if [ ! -e $ccr_read_passwd_file ] ; then
+                export message="CCR DB Password File not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+                echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+                exit 1
+        fi
+        DS_PARAM="${DS_PARAM} -paramfile ${ccr_read_passwd_file}"
+ fi
+fi
+###########################################################################################
+#                                                                                         #
+#           Reading the SBA password file & setting the params & passwords                #
+#                                                                                         #
+###########################################################################################
+#ET # 6472279 - Parameter files sba_read_passwd_file and sba_hrdwtd_batch_passwd_file are passed
+if [ "$COMMON_GRP_JOB" = "N" ] ; then
+ if [ "$DS_GRP_NM" = "$SBA_GRP_NM" ] ; then
+        if [ ! -e $sba_read_passwd_file ] ; then
+                export message="SBA Read DB Password File not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+                echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+                exit 1
+        fi
+        DS_PARAM="${DS_PARAM} -paramfile ${sba_read_passwd_file}"
+        if [ ! -e $sba_hrdwtd_batch_passwd_file ] ; then
+                export message="SBA TD Batch DB Password File not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+                echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+                exit 1
+        fi
+        DS_PARAM="${DS_PARAM} -paramfile ${sba_hrdwtd_batch_passwd_file}"
+ fi
+fi
+###########################################################################################
+#                                                                                         #
+#         Reading the HRDW Teradata Batch password file & setting the params & passwords  #
+#                                                                                         #
+###########################################################################################
+#ET # 6472279 - Parameter file hrdwtd_batch_passwd_file has been passed
+if [ "$COMMON_GRP_JOB" = "N" ] ; then
+ if [ ! -e $hrdwtd_batch_passwd_file ] ; then
+        echo "DB Password File not found"
+        export message="Target Teradata DB Password File not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+        echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+        exit 1
+ fi
+#ET # 7163657 - To execute the Macro files
+if [[ -f $hrdwtd_sql_batch_passwd_file ]] ; then
+        TERA_UID=`cut -f 1 -d , $hrdwtd_sql_batch_passwd_file` export TERA_UID;
+        TERA_PWD=`cut -f 2 -d , $hrdwtd_sql_batch_passwd_file` export TERA_PWD;
+        TERA_DB =`cut -f 3 -d , $hrdwtd_sql_batch_passwd_file` export TERA_DB;
+        TERA_SID=`cut -f 4 -d , $hrdwtd_sql_batch_passwd_file` export TERA_SID;
+ else
+        echo "DB Password File not found"
+        export message="Target Teradata DB Password File not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+        echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+        exit 1
+ fi
+ DS_PARAM="${DS_PARAM} -paramfile ${hrdwtd_batch_passwd_file}"
+fi
+###########################################################################################
+#                                                                                         #
+#         Reading the Batch Log/Error password file & setting the params & passwords      #
+#                                                                                         #
+###########################################################################################
+
+#ET # 6472279 - Parameter file batch_err_log_passwd_file has been passed
+if [ ! -e $batch_err_log_passwd_file ] ; then
+        export message="Batch/Error Log DB Password File not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+        echo  $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+        exit 1
+fi
+DS_PARAM="${DS_PARAM} -paramfile ${batch_err_log_passwd_file}"
+###########################################################################################
+#                                                                                         #
+#         Reading the HRDWP Read only password file & setting the params & passwords      #
+#                                                                                         #
+###########################################################################################
+#ET # 6472279 - Parameter file hrdw_pwd_parameter_file has been passed
+if [ "$COMMON_GRP_JOB" = "N" ] ; then
+ if  [ "$DS_GRP_NM" = "$CCFD_GRP_NM" ] 
+  || [ "$DS_GRP_NM" = "$DI_ECD_GRP_NM" ]
+  || [ "$DS_GRP_NM" = "$DI_PULSE_GRP_NM" ]  ; then
+        
+   if [ "$DS_GRP_NM" = "$DI_PULSE_GRP_NM" ] ; then
+   
+                hrdw_pwd_parameter_file=$hrdw_pulse_intf_passwd_file export hrdw_pwd_parameter_file;
+                echo $hrdw_pwd_parameter_file
+        else
+                hrdw_pwd_parameter_file=$fdi_hronline_read_passwd_file export hrdw_pwd_parameter_file;
+        fi
+        if [ ! -e $hrdw_pwd_parameter_file ] ; then
+                echo "HRDWP DB Password File not found"
+                export message="Password file for HRDWP FDI data extraction not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+                echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+                exit 1
+        fi
+ DS_PARAM="${DS_PARAM} -paramfile ${hrdw_pwd_parameter_file}"
+ fi
+fi
+###########################################################################################
+#                                                                                         #
+#           Reading the batch log file & setting the run date, run id & last extract date #
+#                                                                                         #
+###########################################################################################
+if [ "$DS_GRP_NM" != "$TERA_MACRO" ] ; then
+ if [[ -f $batch_info_file ]] ; then
+        if [ "$COMMON_GRP_JOB" = "Y" ] || [ "$LAST_EXT_DT_REQD" = "T" ] ; then
+                RUN_DT    =`cut -f 3 -d , $batch_info_file` export RUN_DT;
+        else
+                RUN_DT_TMP=`cut -f 3 -d , $batch_info_file` export RUN_DT_TMP;
+                RUN_DT    =`echo $RUN_DT_TMP | cut -c 1-10` export RUN_DT;
+                DS_PARAM  ="${DS_PARAM} -param  ${RUN_DT_PARM}=${RUN_DT}"
+        fi
+        JOB_RUN_ID=`cut -f 4 -d , $batch_info_file` export JOB_RUN_ID;
+        ETL_PROGNM=$DS_JOBSEQ_TD_MACRO export ETL_PROGNM;
+ else
+        export message="ETL Group Batch information file not found for the job "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+        echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+        exit 1
+ fi
+DS_PARAM="${DS_PARAM} -param  ${JOB_RUN_ID_PARM}=${JOB_RUN_ID}"
+DS_PARAM="${DS_PARAM} -param  ${ETL_PROGNM_PARM}=${ETL_PROGNM}"
+fi
+###########################################################################################
+#                                                                                         #
+#           Set the last extract date or date time parameter if a job needs it            #
+#                                                                                         #
+###########################################################################################
+if [ "$LAST_EXT_DT_REQD" = "D" ] || [ "$LAST_EXT_DT_REQD" = "T" ] ; then
+        if [[ -f $last_run_date_etl_comp_file ]] ; then
+                if [ "$LAST_EXT_DT_REQD" = "D" ] ; then
+                        LAST_EXT_DT=`cut -c 1-10 $last_run_date_etl_comp_file` export LAST_EXT_DT;
+                        DS_PARAM="${DS_PARAM} -param  ${LAST_EXT_DT_PARM}=${LAST_EXT_DT}"
+                else
+                        LAST_EXT_DT=`cut -c 1-19 $last_run_date_etl_comp_file` export LAST_EXT_DT;
+                fi
+        else
+                export message="Last Extract Date Info File not found on the ETL Server "$DS_JOBSEQ_TD_MACRO" running at "$NOW" as a part of "$DS_GRP_NM" Batch Stream."
+                echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+                exit 1
+        fi
+fi
+###########################################################################################
+#                                                                                         #
+#           Set the Invocation ID                                                         #
+#                                                                                         #
+###########################################################################################
+if [ "$INVOCATION_ID_REQD" = "Y" ] ; then
+        INVOCATION_ID="$INVOCATION_ID"
+        DS_JOBSEQ_TD_MACRO_FIN="${DS_JOBSEQ_TD_MACRO}.${INVOCATION_ID}" export DS_JOBSEQ_TD_MACRO_FIN;
+else
+        DS_JOBSEQ_TD_MACRO_FIN="${DS_JOBSEQ_TD_MACRO}" export DS_JOBSEQ_TD_MACRO_FIN;
+fi
+###########################################################################################
+#                                                                                         #
+#           Set the sequence level parameters if a job needs it                           #
+#                                                                                         #
+###########################################################################################
+if [[ -f $PARM_DIR/$SEQ_LEVEL_PARM_FILE ]] ; then
+ n=0
+ paramfile=$PARM_DIR/$SEQ_LEVEL_PARM_FILE
+ param_var=`grep '=' ${paramfile}`
+ n=`echo ${param_var}|wc -w`
+i=1
+while [ ${i} -le ${n} ]
+do
+ PARM=`echo ${param_var} | cut -f${i} -d ' '`
+ DS_PARAM="${DS_PARAM} -param ${PARM} "
+i=`expr ${i} + 1`
+done
+fi
+###########################################################################################
+#                                                                                         #
+#           Echo Messages                                                                 #
+#                                                                                         #
+###########################################################################################
+echo "Project Name is       ="$DS_PROJECT_NM
+echo "ETL Job Name is       ="$DS_JOBSEQ_TD_MACRO
+echo "ETL Group Name is     ="$DS_GRP_NM
+echo "Parameter File Name is="$SEQ_LEVEL_PARM_FILE
+echo "Requires Last Extract Date Information?="$LAST_EXT_DT_REQD
+echo "Input File Name is    ="$5
+echo "Requires Multiple Invocation Information?="$INVOCATION_ID_REQD
+echo "Invocation ID         ="$INVOCATION_ID
+echo "Run ID is             ="$JOB_RUN_ID
+echo "Run Date is           ="$RUN_DT
+echo "Last Extract Date is  ="$LAST_EXT_DT
+#ET # 6472279 - Removed the Login, UID parameter details
+###########################################################################################
+#                                                                                         #
+#           Teradata Macros                                                               #
+#                                                                                         #
+###########################################################################################
+if [ "$DS_GRP_NM" = "$TERA_MACRO" ] ; then
+#ET # 7163657 - To execute the Macro files
+bteq << EOF > $BATCH_ERR_DIR/$DS_JOBSEQ_TD_MACRO_LOG
+.logon $TERA_SID/$TERA_UID,$TERA_PWD
+EXEC $HRDW_TERA_MACRO_LIB.$DS_JOBSEQ_TD_MACRO;
+.exit
+EOF
+if [ `tail -1 $BATCH_ERR_DIR/$DS_JOBSEQ_TD_MACRO_LOG | grep -c "= 0 "` -ne 1 ] ; then
+        echo "Log Error checking..."
+        echo "Error executing the Macro file "$DS_JOBSEQ_TD_MACRO"."
+        export message="HRDW ETL Job "$1" failed on "$NOW
+        echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+        exit 1;
+fi
+exit $SUCCESS_EXIT_STATUS
+fi
+###########################################################################################
+#                                                                                         #
+#           Call for HRDW ETL Job                                                         #
+#                                                                                         #
+###########################################################################################
+if [ "$COMMON_GRP_JOB" = "Y" ] ; then
+        $DS_JOB -run -mode NORMAL ${DS_PARAM} -param '$RUN_DT'="$RUN_DT" -warn 10000 -jobstatus $DS_PROJECT_NM ${DS_JOBSEQ_TD_MACRO_FIN} >> ${DS_LOGFILE}
+elif [ "$LAST_EXT_DT_REQD" = "T" ] ; then
+        $DS_JOB -run -mode NORMAL ${DS_PARAM} -param '$LAST_EXT_DT'="$LAST_EXT_DT" -param '$RUN_DT'="$RUN_DT" -warn 10000 -jobstatus $DS_PROJECT_NM ${DS_JOBSEQ_TD_MACRO_FIN} >> ${DS_LOGFILE}
+else
+        $DS_JOB -run -mode NORMAL ${DS_PARAM} -warn 10000 -jobstatus $DS_PROJECT_NM ${DS_JOBSEQ_TD_MACRO_FIN} >> ${DS_LOGFILE}
+fi
+###########################################################################################
+#                                                                                         #
+#           Checking the status of ETL job                                                #
+#                                                                                         #
+###########################################################################################
+status=$?
+
+###### If job ran OK, set success flag to yes ########################################
+if [[ $status -gt 2 ]] ; then
+    EXIT_STATUS=$FAIL_EXIT_STATUS
+    echo "Job abended and did not complete-Status="$status
+else
+echo "SUCCESS_EXIT_STATUS :" $SUCCESS_EXIT_STATUS
+    EXIT_STATUS=$SUCCESS_EXIT_STATUS
+    echo "Job ran successfully-Status="$status
+fi
+###########################################################################################
+#                                                                                         #
+#           Removing any error log file/Updating last extract date file etc.              #
+#                                                                                         #
+###########################################################################################
+if [ "${EXIT_STATUS}" -eq "$FAIL_EXIT_STATUS" ] ; then
+   export message="HRDW ETL Job "$1" failed on "$NOW
+   echo $message | mailx -s $SUBJECT_ERR_MSG $SUPP_MAIL_LIST
+   exit $FAIL_EXIT_STATUS
+else
+####### Move the current run date to the last extract date file if job is successful ######
+   if [ "$LAST_EXT_DT_REQD" = "D" ] || [ "$LAST_EXT_DT_REQD" = "T" ] ; then
+        CURR_EXT_DT=`cut -f 3 -d , $batch_info_file`
+        echo $CURR_EXT_DT > $last_run_date_etl_comp_file
+   fi
+####### Remove the log file if job completed successfully ######
+   rm -f ${DS_LOGFILE}
+   echo "HRDW ETL Job "$1" ran successfully"
+   exit $SUCCESS_EXIT_STATUS
+fi
+***************************|||||||||||||||||||||**********************************************************************************************
+ 
+ 
+#       $Workfile:   bhrd_etl_profile.ksh  $
+#       $Revision:   2.14  $
+#       $Date:   Sep 28 2010 13:18:52  $
+#       $Author:   PKHERA  $
+#!/bin/sh
+#-------------------------------------------------------------------------------
+#  $Workfile:   bhrd_etl_profile.ksh
+#-------------------------------------------------------------------------------
+#  Author       :  Avinish Bansal
+#  Date Created :  03/01/2007
+#  Description  :  This script will initialize the environment variables
+#
+#  Input        :        None
+#
+#  Output       :  Initilializes the environment variables
+#
+#  Calls        :  None
+#
+#  Called by    :  Shell Scripts, Autosys Jobs
+#
+#  Change history:
+#  Modified By          Date          Reason
+# ------------------   -----------   -------------------------------------------
+# Avinish Bansal        03/01/2007   Initial Version
+# Arun Gullipalli       08/29/2007   ET# 5430235 Time Box
+# Arun Gullipalli       12/15/2007   Position Management / Org Plus / AAWARDS Launch
+# SKOPPUSE              01/15/2007   2 Schema Launch
+# Arun Gullipalli       02/10/2008   United Way Feeds Launch
+# pkhera                03/01/2008   ET#6246785 LISTSERV Decommission, use of @bulkmail.ford.com
+# pkhera                03/10/2008   ET#6512000 Server Move fcas857
+# agullipa              05/05/2008   FDI Teradata Launch
+# agullipa              08/25/2008   UW Teradata Launch
+# Arun Gullipalli       10/30/2008   Oracle 10g Migration
+# Praful Khera          11/20/2008   PSCP >> HRDW >> PBN Via SFTP ET#7624064
+# Avinish Bansal        12/03/2008   Oracle 10g Migration (Added Parameter for HRBIMON - Audit Reports)
+# Arun Gullipalli       03/05/2010   Compensation Planning (Added PCP Group Name)
+# Praful Khera          09/01/2010   USBAT changes - Added FORD DBDC Group Name
+# Arun Gullipalli       03/10/2011   SABA Project related changes
+# Veranjaneyula Reddy   08/02/2012   REPLACE PRISM Interfaces with HRDW
+# EARUNAKU              08/27/2012   DataStage migration from 7.5 to 8.5
+echo "****************************************"
+echo "Inside bhrd_etl_profile.ksh"
+echo "****************************************"
+source /ford/proj/IBM/InformationServer/Server/DSEngine/dsenv
+. /etc/profile-env
+HOSTNAME=`hostname`; export HOSTNAME
+PBL_GRP_NM=PBL; export PBL_GRP_NM
+PEC_GRP_NM=PEC; export PEC_GRP_NM
+PEJ_GRP_NM=PEJ; export PEJ_GRP_NM
+PDM_GRP_NM=PDM; export PDM_GRP_NM
+PGT_GRP_NM=PGT; export PGT_GRP_NM
+HNL_GRP_NM=HNL; export HNL_GRP_NM
+CMM_GRP_NM=CMM; export CMM_GRP_NM
+FIN_GRP_NM=FIN; export FIN_GRP_NM
+TIM_GRP_NM=TIM; export TIM_GRP_NM
+CCL_GRP_NM=CCL; export CCL_GRP_NM
+CCTP_GRP_NM=CCTP; export CCTP_GRP_NM
+CCTG_GRP_NM=CCTG; export CCTG_GRP_NM
+CCTD_GRP_NM=CCTD; export CCTD_GRP_NM
+CCFD_GRP_NM=CCFD; export CCFD_GRP_NM
+CCMO_GRP_NM=CCMO; export CCMO_GRP_NM
+CCYR_GRP_NM=CCYR; export CCYR_GRP_NM
+DI_OHSIM_GRP_NM=DI_OHSIM; export DI_OHSIM_GRP_NM
+DI_HEARTRACK_GRP_NM=DI_HEARTRACK; export DI_HEARTRACK_GRP_NM
+DI_FLAND_GRP_NM=DI_FORDLAND; export DI_FLAND_GRP_NM
+DI_PALS_GRP_NM=DI_PALS; export DI_PALS_GRP_NM
+DI_PBN_GRP_NM=DI_PBN; export DI_PBN_GRP_NM
+DI_PDHEADCNT_GRP_NM=DI_PDHEADCNT; export DI_PDHEADCNT_GRP_NM
+DI_PULSE_GRP_NM=DI_PULSE; export DI_PULSE_GRP_NM
+DI_SSI_GRP_NM=DI_SSI; export DI_SSI_GRP_NM
+DI_STAP_GRP_NM=DI_STAP; export DI_STAP_GRP_NM
+DI_TIMEATTEND_GRP_NM=DI_TIMEATTEND; export DI_TIMEATTEND_GRP_NM
+DI_FMCC_VIP_GRP_NM=DI_FMCC_VIP; export DI_FMCC_VIP_GRP_NM
+DI_FMCC_PR_GRP_NM=DI_FMCC_PR; export DI_FMCC_PR_GRP_NM
+DI_FMCC_PORTAL_GRP_NM=DI_FMCC_PORTAL; export DI_FMCC_PORTAL_GRP_NM
+DI_FDI_GRP_NM=DI_FDI; export DI_FDI_GRP_NM
+DI_FCGP_GRP_NM=DI_FCGP; export DI_FCGP_GRP_NM
+DI_AFX_GRP_NM=DI_AFX; export DI_AFX_GRP_NM
+DI_ECD_GRP_NM=DI_ECD; export DI_ECD_GRP_NM
+DI_CMDS_GRP_NM=DI_CMDS; export DI_CMDS_GRP_NM
+PRE_CONV_POS_GRP_NM=PRE_CONV_POS; export PRE_CONV_POS_GRP_NM
+DI_OPE_GRP_NM=DI_OPE; export DI_OPE_GRP_NM
+DI_AAWARDS_GRP_NM=DI_AAWARDS; export DI_AAWARDS_GRP_NM
+SCHEMA_GRP_NM=2SCHEMA; export SCHEMA_GRP_NM
+DI_UWAY_GRP_NM=DI_UWAY; export DI_UWAY_GRP_NM
+CDS_GRP_NM=CDS; export CDS_GRP_NM
+FDI_GRP_NM=FDI; export FDI_GRP_NM
+DI_UWAF_GRP_NM=DI_UWAF; export DI_UWAF_GRP_NM
+DI_UWSM_GRP_NM=DI_UWSM; export DI_UWSM_GRP_NM
+PULSE_BATCH_NM=PULSE; export PULSE_BATCH_NM
+BUSOBJ_BATCH_NM=BUSOBJ; export BUSOBJ_BATCH_NM
+DI_PBN_PSCP_GRP_NM=DI_PBN_PSCP; export DI_PBN_PSCP_GRP_NM
+HRBIMON_BATCH_NM=HRBIMON; export HRBIMON_BATCH_NM
+PCP_GRP_NM=PCP; export PCP_GRP_NM
+DI_GAPAC_GRP_NM=DI_GAPAC; export DI_GAPAC_GRP_NM
+DI_FordDbdc_IseAddr_GRP_NM=DI_FordDbdc_IseAddr; export DI_FordDbdc_IseAddr_GRP_NM
+DI_FordDbdc_SupCds_GRP_NM=DI_FordDbdc_SupCds; export DI_FordDbdc_SupCds_GRP_NM
+DI_FordDbdc_EmpEmail_GRP_NM=DI_FordDbdc_EmpEmail; export DI_FordDbdc_EmpEmail_GRP_NM
+SBA_GRP_NM=SBA; export SBA_GRP_NM
+DI_PRISM_CAS_GRP_NM=DI_PRISM_CAS; export DI_PRISM_CAS_GRP_NM
+DI_PRISM_PCE_GRP_NM=DI_PRISM_PCE; export DI_PRISM_PCE_GRP_NM
+DI_PRISM_PAC_GRP_NM=DI_PRISM_PAC; export DI_PRISM_PAC_GRP_NM
+DI_PRISM_EPPP_GRP_NM=DI_PRISM_EPPP; export DI_PRISM_EPPP_GRP_NM
+DI_PRISM_TER_GRP_NM=DI_PRISM_TER; export DI_PRISM_TER_GRP_NM
+if [ "$HOSTNAME" = "fcas1820" ] ; then
+        DS_DIR=/ford/thishost/proj/IBM/InformationServer/Server; export DS_DIR
+        DS_PROJECT_LOC=BHRD_DEV; export DS_PROJECT_LOC
+        DS_PROJECT_NM=BHRD_DEV_proj; export DS_PROJECT_NM
+        DFLT_CONFIG_FILE=BHRD_DEVdefault.apt; export DFLT_CONFIG_FILE
+        PROJ_DIR=/ford/thishost/proj/IBM/Projects/$DS_PROJECT_LOC; export PROJ_DIR
+        BATCH_OP_DIR=$PROJ_DIR/logfiles/stdout; export BATCH_OP_DIR
+        BATCH_ERR_DIR=$PROJ_DIR/logfiles/stderr; export BATCH_ERR_DIR
+        SUPP_MAIL_LIST=earunaku@ford.com
+        SUBJECT_ERR_MSG="ETL Job failure in Development Environment"
+        HRDW_TERA_MACRO_LIB=HRDWTST_Update_Macro; export TERA_MACRO_LIB
+elif [ "$HOSTNAME" = "eccas1841" ] ; then
+        DS_DIR=/ford/thishost/proj/IBM/InformationServer/Server; export DS_DIR
+        DS_PROJECT_LOC=BHRD_QA; export DS_PROJECT_LOC
+        DS_PROJECT_NM=BHRD_QA_proj; export DS_PROJECT_NM
+        DFLT_CONFIG_FILE=BHRD_DEVdefault.apt; export DFLT_CONFIG_FILE
+        PROJ_DIR=/ford/thishost/proj/IBM/Projects/$DS_PROJECT_LOC; export PROJ_DIR
+        BATCH_OP_DIR=$PROJ_DIR/logfiles/stdout; export BATCH_OP_DIR
+        BATCH_ERR_DIR=$PROJ_DIR/logfiles/stderr; export BATCH_ERR_DIR
+        SUPP_MAIL_LIST=earunaku@ford.com
+        SUBJECT_ERR_MSG="ETL Job failure in QA Environment"
+        HRDW_TERA_MACRO_LIB=HRDWTST_Update_Macro; export TERA_MACRO_LIB
+elif [ "$HOSTNAME" = "fcas1840" ] ; then
+        DS_DIR=/ford/thishost/proj/IBM/InformationServer/Server; export DS_DIR
+        DS_PROJECT_LOC=BHRD_DEV; export DS_PROJECT_LOC
+        DS_PROJECT_NM=BHRD_DEV_proj; export DS_PROJECT_NM
+        DFLT_CONFIG_FILE=BHRD_DEVdefault.apt; export DFLT_CONFIG_FILE
+        PROJ_DIR=/ford/thishost/proj/IBM/Projects/$DS_PROJECT_LOC; export PROJ_DIR
+        BATCH_OP_DIR=$PROJ_DIR/logfiles/stdout; export BATCH_OP_DIR
+        BATCH_ERR_DIR=$PROJ_DIR/logfiles/stderr; export BATCH_ERR_DIR
+        SUPP_MAIL_LIST=earunaku@ford.com
+        SUBJECT_ERR_MSG="ETL Job failure in Production Environment"
+elif [ "$HOSTNAME" = "eccas1840" ] ; then
+        DS_DIR=/ford/thishost/proj/IBM/InformationServer/Server; export DS_DIR
+        DS_PROJECT_LOC=BHRD_DEV; export DS_PROJECT_LOC
+        DS_PROJECT_NM=BHRD_DEV_proj; export DS_PROJECT_NM
+        DFLT_CONFIG_FILE=BHRD_DEVdefault.apt; export DFLT_CONFIG_FILE
+        PROJ_DIR=/ford/thishost/proj/IBM/Projects/$DS_PROJECT_LOC; export PROJ_DIR
+        BATCH_OP_DIR=$PROJ_DIR/logfiles/stdout; export BATCH_OP_DIR
+        BATCH_ERR_DIR=$PROJ_DIR/logfiles/stderr; export BATCH_ERR_DIR
+        SUPP_MAIL_LIST=earunaku@ford.com
+        SUBJECT_ERR_MSG="ETL Job failure in Production Environment"
+        HRDW_TERA_MACRO_LIB=HRDWTST_Update_Macro; export TERA_MACRO_LIB
+fi
+BIN_DIR=$DSHOME/bin; export BIN_DIR
+APT_ORCHHOME=$DS_DIR/PXEngine; export APT_ORCHHOME
+APT_CONFIG_FILE=/ford/proj/IBM/InformationServer/Server/Configurations/$DFLT_CONFIG_FILE; export APT_CONFIG_FILE
+SEC_DIR=$PROJ_DIR/security; export SEC_DIR
+PARM_DIR=$PROJ_DIR/paramfiles; export PARM_DIR
+SCRIPT_DIR=$PROJ_DIR/scriptfiles; export SCRIPT_DIR
+IF_DIR=$PROJ_DIR/interimfiles; export IF_DIR
+REJ_DIR=$PROJ_DIR/rejectfiles; export REJ_DIR
+LOG_DIR=$PROJ_DIR/logfiles; export LOG_DIR
+DS_JOB=$BIN_DIR/dsjob; export DS_JOB
+DS_PROJECT=$PROJ_DIR/$DS_PROJECT_NM; export DS_PROJECT
+ARCHIVE_DIR=$PROJ_DIR/archive; export ARCHIVE_DIR
+TERA_MACRO=TD_MACRO; export TERA_MACRO
+TNS_ADMIN=/ford/proj/IBM/oracletns; export TNS_ADMIN
+echo "All Environment variables are set"
+##############################################################################################################################################################

@@ -1,0 +1,166 @@
+
+ 
+#       $Workfile:   bhrd_etl_profile.ksh  $
+#       $Revision:   2.14  $
+#       $Date:   Sep 28 2010 13:18:52  $
+#       $Author:   PKHERA  $
+#!/bin/sh
+#-------------------------------------------------------------------------------
+#  $Workfile:   bhrd_etl_profile.ksh
+#-------------------------------------------------------------------------------
+#  Author       :  Avinish Bansal
+#  Date Created :  03/01/2007
+#  Description  :  This script will initialize the environment variables
+#
+#  Input        :        None
+#
+#  Output       :  Initilializes the environment variables
+#
+#  Calls        :  None
+#
+#  Called by    :  Shell Scripts, Autosys Jobs
+#
+#  Change history:
+#  Modified By          Date          Reason
+# ------------------   -----------   -------------------------------------------
+# Avinish Bansal        03/01/2007   Initial Version
+# Arun Gullipalli       08/29/2007   ET# 5430235 Time Box
+# Arun Gullipalli       12/15/2007   Position Management / Org Plus / AAWARDS Launch
+# SKOPPUSE              01/15/2007   2 Schema Launch
+# Arun Gullipalli       02/10/2008   United Way Feeds Launch
+# pkhera                03/01/2008   ET#6246785 LISTSERV Decommission, use of @bulkmail.ford.com
+# pkhera                03/10/2008   ET#6512000 Server Move fcas857
+# agullipa              05/05/2008   FDI Teradata Launch
+# agullipa              08/25/2008   UW Teradata Launch
+# Arun Gullipalli       10/30/2008   Oracle 10g Migration
+# Praful Khera          11/20/2008   PSCP >> HRDW >> PBN Via SFTP ET#7624064
+# Avinish Bansal        12/03/2008   Oracle 10g Migration (Added Parameter for HRBIMON - Audit Reports)
+# Arun Gullipalli       03/05/2010   Compensation Planning (Added PCP Group Name)
+# Praful Khera          09/01/2010   USBAT changes - Added FORD DBDC Group Name
+# Arun Gullipalli       03/10/2011   SABA Project related changes
+# Veranjaneyula Reddy   08/02/2012   REPLACE PRISM Interfaces with HRDW
+# EARUNAKU              08/27/2012   DataStage migration from 7.5 to 8.5
+echo "****************************************"
+echo "Inside bhrd_etl_profile.ksh"
+echo "****************************************"
+source /ford/proj/IBM/InformationServer/Server/DSEngine/dsenv
+. /etc/profile-env
+HOSTNAME=`hostname`; export HOSTNAME
+PBL_GRP_NM=PBL; export PBL_GRP_NM
+PEC_GRP_NM=PEC; export PEC_GRP_NM
+PEJ_GRP_NM=PEJ; export PEJ_GRP_NM
+PDM_GRP_NM=PDM; export PDM_GRP_NM
+PGT_GRP_NM=PGT; export PGT_GRP_NM
+HNL_GRP_NM=HNL; export HNL_GRP_NM
+CMM_GRP_NM=CMM; export CMM_GRP_NM
+FIN_GRP_NM=FIN; export FIN_GRP_NM
+TIM_GRP_NM=TIM; export TIM_GRP_NM
+CCL_GRP_NM=CCL; export CCL_GRP_NM
+CCTP_GRP_NM=CCTP; export CCTP_GRP_NM
+CCTG_GRP_NM=CCTG; export CCTG_GRP_NM
+CCTD_GRP_NM=CCTD; export CCTD_GRP_NM
+CCFD_GRP_NM=CCFD; export CCFD_GRP_NM
+CCMO_GRP_NM=CCMO; export CCMO_GRP_NM
+CCYR_GRP_NM=CCYR; export CCYR_GRP_NM
+DI_OHSIM_GRP_NM=DI_OHSIM; export DI_OHSIM_GRP_NM
+DI_HEARTRACK_GRP_NM=DI_HEARTRACK; export DI_HEARTRACK_GRP_NM
+DI_FLAND_GRP_NM=DI_FORDLAND; export DI_FLAND_GRP_NM
+DI_PALS_GRP_NM=DI_PALS; export DI_PALS_GRP_NM
+DI_PBN_GRP_NM=DI_PBN; export DI_PBN_GRP_NM
+DI_PDHEADCNT_GRP_NM=DI_PDHEADCNT; export DI_PDHEADCNT_GRP_NM
+DI_PULSE_GRP_NM=DI_PULSE; export DI_PULSE_GRP_NM
+DI_SSI_GRP_NM=DI_SSI; export DI_SSI_GRP_NM
+DI_STAP_GRP_NM=DI_STAP; export DI_STAP_GRP_NM
+DI_TIMEATTEND_GRP_NM=DI_TIMEATTEND; export DI_TIMEATTEND_GRP_NM
+DI_FMCC_VIP_GRP_NM=DI_FMCC_VIP; export DI_FMCC_VIP_GRP_NM
+DI_FMCC_PR_GRP_NM=DI_FMCC_PR; export DI_FMCC_PR_GRP_NM
+DI_FMCC_PORTAL_GRP_NM=DI_FMCC_PORTAL; export DI_FMCC_PORTAL_GRP_NM
+DI_FDI_GRP_NM=DI_FDI; export DI_FDI_GRP_NM
+DI_FCGP_GRP_NM=DI_FCGP; export DI_FCGP_GRP_NM
+DI_AFX_GRP_NM=DI_AFX; export DI_AFX_GRP_NM
+DI_ECD_GRP_NM=DI_ECD; export DI_ECD_GRP_NM
+DI_CMDS_GRP_NM=DI_CMDS; export DI_CMDS_GRP_NM
+PRE_CONV_POS_GRP_NM=PRE_CONV_POS; export PRE_CONV_POS_GRP_NM
+DI_OPE_GRP_NM=DI_OPE; export DI_OPE_GRP_NM
+DI_AAWARDS_GRP_NM=DI_AAWARDS; export DI_AAWARDS_GRP_NM
+SCHEMA_GRP_NM=2SCHEMA; export SCHEMA_GRP_NM
+DI_UWAY_GRP_NM=DI_UWAY; export DI_UWAY_GRP_NM
+CDS_GRP_NM=CDS; export CDS_GRP_NM
+FDI_GRP_NM=FDI; export FDI_GRP_NM
+DI_UWAF_GRP_NM=DI_UWAF; export DI_UWAF_GRP_NM
+DI_UWSM_GRP_NM=DI_UWSM; export DI_UWSM_GRP_NM
+PULSE_BATCH_NM=PULSE; export PULSE_BATCH_NM
+BUSOBJ_BATCH_NM=BUSOBJ; export BUSOBJ_BATCH_NM
+DI_PBN_PSCP_GRP_NM=DI_PBN_PSCP; export DI_PBN_PSCP_GRP_NM
+HRBIMON_BATCH_NM=HRBIMON; export HRBIMON_BATCH_NM
+PCP_GRP_NM=PCP; export PCP_GRP_NM
+DI_GAPAC_GRP_NM=DI_GAPAC; export DI_GAPAC_GRP_NM
+DI_FordDbdc_IseAddr_GRP_NM=DI_FordDbdc_IseAddr; export DI_FordDbdc_IseAddr_GRP_NM
+DI_FordDbdc_SupCds_GRP_NM=DI_FordDbdc_SupCds; export DI_FordDbdc_SupCds_GRP_NM
+DI_FordDbdc_EmpEmail_GRP_NM=DI_FordDbdc_EmpEmail; export DI_FordDbdc_EmpEmail_GRP_NM
+SBA_GRP_NM=SBA; export SBA_GRP_NM
+DI_PRISM_CAS_GRP_NM=DI_PRISM_CAS; export DI_PRISM_CAS_GRP_NM
+DI_PRISM_PCE_GRP_NM=DI_PRISM_PCE; export DI_PRISM_PCE_GRP_NM
+DI_PRISM_PAC_GRP_NM=DI_PRISM_PAC; export DI_PRISM_PAC_GRP_NM
+DI_PRISM_EPPP_GRP_NM=DI_PRISM_EPPP; export DI_PRISM_EPPP_GRP_NM
+DI_PRISM_TER_GRP_NM=DI_PRISM_TER; export DI_PRISM_TER_GRP_NM
+if [ "$HOSTNAME" = "fcas1820" ] ; then
+        DS_DIR=/ford/thishost/proj/IBM/InformationServer/Server; export DS_DIR
+        DS_PROJECT_LOC=BHRD_DEV; export DS_PROJECT_LOC
+        DS_PROJECT_NM=BHRD_DEV_proj; export DS_PROJECT_NM
+        DFLT_CONFIG_FILE=BHRD_DEVdefault.apt; export DFLT_CONFIG_FILE
+        PROJ_DIR=/ford/thishost/proj/IBM/Projects/$DS_PROJECT_LOC; export PROJ_DIR
+        BATCH_OP_DIR=$PROJ_DIR/logfiles/stdout; export BATCH_OP_DIR
+        BATCH_ERR_DIR=$PROJ_DIR/logfiles/stderr; export BATCH_ERR_DIR
+        SUPP_MAIL_LIST=earunaku@ford.com
+        SUBJECT_ERR_MSG="ETL Job failure in Development Environment"
+        HRDW_TERA_MACRO_LIB=HRDWTST_Update_Macro; export TERA_MACRO_LIB
+elif [ "$HOSTNAME" = "eccas1841" ] ; then
+        DS_DIR=/ford/thishost/proj/IBM/InformationServer/Server; export DS_DIR
+        DS_PROJECT_LOC=BHRD_QA; export DS_PROJECT_LOC
+        DS_PROJECT_NM=BHRD_QA_proj; export DS_PROJECT_NM
+        DFLT_CONFIG_FILE=BHRD_DEVdefault.apt; export DFLT_CONFIG_FILE
+        PROJ_DIR=/ford/thishost/proj/IBM/Projects/$DS_PROJECT_LOC; export PROJ_DIR
+        BATCH_OP_DIR=$PROJ_DIR/logfiles/stdout; export BATCH_OP_DIR
+        BATCH_ERR_DIR=$PROJ_DIR/logfiles/stderr; export BATCH_ERR_DIR
+        SUPP_MAIL_LIST=earunaku@ford.com
+        SUBJECT_ERR_MSG="ETL Job failure in QA Environment"
+        HRDW_TERA_MACRO_LIB=HRDWTST_Update_Macro; export TERA_MACRO_LIB
+elif [ "$HOSTNAME" = "fcas1840" ] ; then
+        DS_DIR=/ford/thishost/proj/IBM/InformationServer/Server; export DS_DIR
+        DS_PROJECT_LOC=BHRD_DEV; export DS_PROJECT_LOC
+        DS_PROJECT_NM=BHRD_DEV_proj; export DS_PROJECT_NM
+        DFLT_CONFIG_FILE=BHRD_DEVdefault.apt; export DFLT_CONFIG_FILE
+        PROJ_DIR=/ford/thishost/proj/IBM/Projects/$DS_PROJECT_LOC; export PROJ_DIR
+        BATCH_OP_DIR=$PROJ_DIR/logfiles/stdout; export BATCH_OP_DIR
+        BATCH_ERR_DIR=$PROJ_DIR/logfiles/stderr; export BATCH_ERR_DIR
+        SUPP_MAIL_LIST=earunaku@ford.com
+        SUBJECT_ERR_MSG="ETL Job failure in Production Environment"
+elif [ "$HOSTNAME" = "eccas1840" ] ; then
+        DS_DIR=/ford/thishost/proj/IBM/InformationServer/Server; export DS_DIR
+        DS_PROJECT_LOC=BHRD_DEV; export DS_PROJECT_LOC
+        DS_PROJECT_NM=BHRD_DEV_proj; export DS_PROJECT_NM
+        DFLT_CONFIG_FILE=BHRD_DEVdefault.apt; export DFLT_CONFIG_FILE
+        PROJ_DIR=/ford/thishost/proj/IBM/Projects/$DS_PROJECT_LOC; export PROJ_DIR
+        BATCH_OP_DIR=$PROJ_DIR/logfiles/stdout; export BATCH_OP_DIR
+        BATCH_ERR_DIR=$PROJ_DIR/logfiles/stderr; export BATCH_ERR_DIR
+        SUPP_MAIL_LIST=earunaku@ford.com
+        SUBJECT_ERR_MSG="ETL Job failure in Production Environment"
+        HRDW_TERA_MACRO_LIB=HRDWTST_Update_Macro; export TERA_MACRO_LIB
+fi
+BIN_DIR=$DSHOME/bin; export BIN_DIR
+APT_ORCHHOME=$DS_DIR/PXEngine; export APT_ORCHHOME
+APT_CONFIG_FILE=/ford/proj/IBM/InformationServer/Server/Configurations/$DFLT_CONFIG_FILE; export APT_CONFIG_FILE
+SEC_DIR=$PROJ_DIR/security; export SEC_DIR
+PARM_DIR=$PROJ_DIR/paramfiles; export PARM_DIR
+SCRIPT_DIR=$PROJ_DIR/scriptfiles; export SCRIPT_DIR
+IF_DIR=$PROJ_DIR/interimfiles; export IF_DIR
+REJ_DIR=$PROJ_DIR/rejectfiles; export REJ_DIR
+LOG_DIR=$PROJ_DIR/logfiles; export LOG_DIR
+DS_JOB=$BIN_DIR/dsjob; export DS_JOB
+DS_PROJECT=$PROJ_DIR/$DS_PROJECT_NM; export DS_PROJECT
+ARCHIVE_DIR=$PROJ_DIR/archive; export ARCHIVE_DIR
+TERA_MACRO=TD_MACRO; export TERA_MACRO
+TNS_ADMIN=/ford/proj/IBM/oracletns; export TNS_ADMIN
+echo "All Environment variables are set"
+##############################################################################################################################################################
